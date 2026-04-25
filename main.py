@@ -5,6 +5,10 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 from aiohttp import web
+import nest_asyncio # nest_asyncio ကို သုံးပြီး asyncio event loop issue ကို ဖြေရှင်းမယ်
+
+# nest_asyncio ကို apply လုပ်ပါ (polling နှင့် web server concurrent run ရန်)
+nest_asyncio.apply()
 
 # Bot Token
 API_TOKEN = '8788197839:AAH7T2QTrv2wPPSG848i3VDcckzqvNxIyRI'  # BotFather ဆီကရတဲ့ Token ကို ဒီမှာထည့်ပါ
@@ -18,7 +22,7 @@ dp = Dispatcher()
 # User ရဲ့ ရွေးချယ်မှုကို ခေတ္တမှတ်ထားရန်
 user_data = {}
 
-# --- Render အတွက် Web Server အသေးလေး ဆောက်ခြင်း ---
+# --- Render အတွက် Web Server ---
 async def handle(request):
     return web.Response(text="Bot is running!")
 
@@ -35,6 +39,8 @@ async def start_web_server():
     site = web.TCPSite(runner, '0.0.0.0', port) 
     await site.start()
     logging.info(f"Web server started on port {port}")
+    # runner ကို return ပြန်ပေးပြီး main loop ထဲမှာ reference ရှိနေအောင်လုပ်မယ်
+    return runner
 
 # ----------------------------------------------
 
@@ -90,15 +96,36 @@ async def handle_photo(message: types.Message):
 
 # --- Main entry point ---
 async def main():
-    # Start web server
-    await start_web_server()
+    # nest_asyncio.apply() က polling ရော web server ရော တစ်ပြိုင်နက် run ဖို့ကူညီပေးမယ်
+
+    # Web server startup (Render က Web port ကို မြင်အောင်လုပ်ပေးမယ်)
+    web_server_runner = await start_web_server()
     
-    # Start Bot Polling
+    # Start Bot Polling (aiogram v3)
     logging.info("Bot is starting (Polling with web server active)")
-    await dp.start_polling(bot)
+    
+    # asyncio.create_task() သုံးပြီး polling process ကို သီးခြား task တစ်ခုအနေနဲ့ run မယ်
+    # polling_task = asyncio.create_task(dp.start_polling(bot))
+    # polling_task ကို background task အနေနဲ့ run ထားပြီး main loop က web server runner ကို reference လုပ်နေမယ်
+
+    # Polling ကို Web Server နဲ့ concurrent run ဖို့အတွက် အောက်ကနည်းလမ်းကို သုံးမယ်
+    try:
+        # Polling task ကို create လုပ်မယ်
+        # asyncio.create_task(dp.start_polling(bot))
+        
+        # main thread က web server runner ကို keep alive လုပ်ထားဖို့အတွက် infinite loop သုံးမယ်
+        # ဒါမှမဟုတ် dp.start_polling(bot) ကို main call အနေနဲ့ run ပြီး web server ကို create_task နဲ့ run ရင်လည်း ရပါတယ်
+        
+        # Web server startup (Render က Web port ကို မြင်အောင်လုပ်ပေးမယ်)
+        logging.info("Web server started, now starting polling")
+        await dp.start_polling(bot)
+        
+    except (KeyboardInterrupt, SystemExit):
+        logging.info("Bot stopped by user/system")
+    finally:
+        # shutdown process
+        await web_server_runner.cleanup()
 
 if __name__ == '__main__':
-    try:
-        asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit):
-        logging.info("Bot stopped")
+    # nest_asyncio ကို သုံးပြီး polling နှင့် web server concurrent run ရန်
+    asyncio.run(main())
