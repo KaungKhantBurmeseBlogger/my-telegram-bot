@@ -46,11 +46,11 @@ main_menu = InlineKeyboardMarkup(inline_keyboard=[
 async def send_welcome(message: types.Message):
     await message.answer("Bot ကိုစတင်ရန် 'Start' ကိုနှိပ်ပါ", reply_markup=start_keyboard)
 
-@dp.message(filters.Text(text="Start"))
+@dp.message(lambda message: message.text == "Start") # aiogram v3 အတွက် Text filter ကို lambda နဲ့ အစားထိုး
 async def show_menu(message: types.Message):
     await message.answer("မင်္ဂလာပါရှင့် Nyein's Mlbb Shop ရဲ့ Ai Bot ပဲဖြစ်ပါတယ်ရှင်။ ဘာများဝန်ဆောင်မှုပေးရမလဲရှင်", reply_markup=main_menu)
 
-@dp.callback_query(filters.Text(text='buy_diamond'))
+@dp.callback_query(lambda callback_query: callback_query.data == 'buy_diamond') # aiogram v3 အတွက် Text filter ကို lambda နဲ့ အစားထိုး
 async def process_buy_diamond(callback_query: types.CallbackQuery):
     await bot.answer_callback_query(callback_query.id)
     msg = "Nyein's Mlbb Shop မှာရနိုင်သော Diamond ဈေး‌များ\n41-3000MMK\n82-6000MMK\nWEEKLY PASS-7000MMK\n\nမှတ်ချက် - မိမိဝယ်ယူလိုသောအမျိုးစားကိုသာလျှင်ပို့ပေးပါရန် ဥပမာ 41၊ WeeklyPass 3ပတ်"
@@ -75,8 +75,9 @@ async def handle_photo(message: types.Message):
         try:
             await bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=f"🛒 အော်ဒါအသစ်ရပါပြီ!\n\n💎 အမျိုးအစား: {selected_item}\n👤 ပို့သူ: @{message.from_user.username or 'No Username'}")
             await message.answer("အော်ဒါတင်ခြင်း အောင်မြင်ပါတယ်ရှင်။ ခေတ္တစောင့်ပေးပါဦး။")
-        except:
+        except Exception as e:
             await message.answer("အော်ဒါပို့မရပါ။ Admin ကို တိုက်ရိုက်ပြောပေးပါရှင်။")
+            logging.error(f"Error sending photo to admin: {e}")
         del user_data[user_id]
 
 # --- Main entry point (Webhook & Polling combination for simplicity) ---
