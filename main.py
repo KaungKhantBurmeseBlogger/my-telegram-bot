@@ -7,7 +7,7 @@ from aiohttp import web
 import asyncio
 
 # Bot Token
-API_TOKEN = 'YOUR_BOT_TOKEN_HERE'
+API_TOKEN = 'Y8788197839:AAH7T2QTrv2wPPSG848i3VDcckzqvNxIyRI'
 ADMIN_ID = 8699560400 
 
 bot = Bot(token=API_TOKEN)
